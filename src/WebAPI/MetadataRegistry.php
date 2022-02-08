@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Copyright 2018 AlexaCRM
  *
@@ -30,12 +31,13 @@ use AlexaCRM\WebAPI\OData\ODataException;
 use AlexaCRM\WebAPI\OData\TransportException;
 use AlexaCRM\Xrm\Metadata\EntityMetadata;
 use DateInterval;
-use Psr\Cache\CacheItemPoolInterface;
+use GPsr\Cache\CacheItemPoolInterface;
 
 /**
  * Provides access to Dynamics 365 organization metadata.
  */
-class MetadataRegistry {
+class MetadataRegistry
+{
 
     /**
      * Contains type names of attribute metadata which need OData expansion to retrieve option sets.
@@ -78,13 +80,14 @@ class MetadataRegistry {
      *
      * @param WebAPIClient $client
      */
-    public function __construct( WebAPIClient $client ) {
+    public function __construct(WebAPIClient $client)
+    {
         $this->client = $client->getClient();
 
         $this->storage = new NullAdapter();
         $this->storage->clear();
 
-        $this->ttl = new DateInterval( 'P7D' );
+        $this->ttl = new DateInterval('P7D');
     }
 
     /**
@@ -94,7 +97,8 @@ class MetadataRegistry {
      *
      * @return MetadataRegistry
      */
-    public function withStorage( CacheItemPoolInterface $storage ): MetadataRegistry {
+    public function withStorage(CacheItemPoolInterface $storage): MetadataRegistry
+    {
         $new = clone $this;
         $new->storage = $storage;
 
@@ -111,18 +115,19 @@ class MetadataRegistry {
      * @throws OrganizationException
      * @throws ToolkitException
      */
-    public function getDefinition( string $logicalName ): ?EntityMetadata {
-        $cached = $this->storage->getItem( $logicalName );
-        if ( $cached->isHit() ) {
+    public function getDefinition(string $logicalName): ?EntityMetadata
+    {
+        $cached = $this->storage->getItem($logicalName);
+        if ($cached->isHit()) {
             return $cached->get();
         }
 
         try {
-            $object = $this->client->getRecord( 'EntityDefinitions', "LogicalName='{$logicalName}'", [
+            $object = $this->client->getRecord('EntityDefinitions', "LogicalName='{$logicalName}'", [
                 'Expand' => 'Attributes,Keys,OneToManyRelationships,ManyToOneRelationships,ManyToManyRelationships',
                 'ApiVersion' => $this->client->getSettings()->apiVersion,
-            ] );
-            unset( $object->{Annotation::ODATA_CONTEXT} );
+            ]);
+            unset($object->{Annotation::ODATA_CONTEXT});
 
             /*
              * Attributes with option sets arrived without them because OptionSet property is an OData navigation property
@@ -131,23 +136,23 @@ class MetadataRegistry {
              * Although we duplicate the attributes, Deserializer will eliminate the duplicates
              * and overwrite them with the newly retrieved attributes.
              */
-            $object->Attributes = array_merge( $object->Attributes, $this->retrieveOptionSetAttributes( $logicalName ) );
-        } catch ( ODataException $e ) {
-            if ( $e->getCode() === 404 ) {
+            $object->Attributes = array_merge($object->Attributes, $this->retrieveOptionSetAttributes($logicalName));
+        } catch (ODataException $e) {
+            if ($e->getCode() === 404) {
                 return null;
             }
 
-            throw new OrganizationException( "Failed to retrieve `{$logicalName}` metadata", $e );
-        } catch ( TransportException $e ) {
-            throw new ToolkitException( $e->getMessage(), $e );
+            throw new OrganizationException("Failed to retrieve `{$logicalName}` metadata", $e);
+        } catch (TransportException $e) {
+            throw new ToolkitException($e->getMessage(), $e);
         }
 
         $deserializer = $this->newDeserializer();
         /** @var EntityMetadata $md */
-        $md = $deserializer->deserialize( $object, new Reference( EntityMetadata::class ) );
+        $md = $deserializer->deserialize($object, new Reference(EntityMetadata::class));
 
-        $cached->set( $md )->expiresAfter( $this->ttl );
-        $this->storage->save( $cached );
+        $cached->set($md)->expiresAfter($this->ttl);
+        $this->storage->save($cached);
 
         return $md;
     }
@@ -157,12 +162,13 @@ class MetadataRegistry {
      *
      * @return MetadataDeserializer
      */
-    public function newDeserializer(): MetadataDeserializer {
-        if ( static::$map === null ) {
+    public function newDeserializer(): MetadataDeserializer
+    {
+        if (static::$map === null) {
             static::$map = require 'metadataClassMap.php';
         }
 
-        return new MetadataDeserializer( static::$map );
+        return new MetadataDeserializer(static::$map);
     }
 
     /**
@@ -177,36 +183,37 @@ class MetadataRegistry {
      * @throws AuthenticationException
      * @throws TransportException
      */
-    protected function retrieveOptionSetAttributes( string $logicalName ): array {
+    protected function retrieveOptionSetAttributes(string $logicalName): array
+    {
         $typedAttributes = [];
 
-        foreach ( static::OPTIONSET_ATTRIBUTES as $type ) {
+        foreach (static::OPTIONSET_ATTRIBUTES as $type) {
             try {
-                $attributesResponse = $this->client->getList( "EntityDefinitions(LogicalName='{$logicalName}')/Attributes/Microsoft.Dynamics.CRM.{$type}", [
+                $attributesResponse = $this->client->getList("EntityDefinitions(LogicalName='{$logicalName}')/Attributes/Microsoft.Dynamics.CRM.{$type}", [
                     'Expand' => 'OptionSet,GlobalOptionSet',
-                ] );
+                ]);
 
-                foreach ( $attributesResponse->List as $attribute ) {
-                    unset( $attribute->{'OptionSet@odata.context'} );
+                foreach ($attributesResponse->List as $attribute) {
+                    unset($attribute->{'OptionSet@odata.context'});
 
-                    if ( !isset( $attribute->OptionSet ) && isset( $attribute->GlobalOptionSet ) ) {
+                    if (!isset($attribute->OptionSet) && isset($attribute->GlobalOptionSet)) {
                         $attribute->OptionSet = $attribute->GlobalOptionSet;
                     }
 
-                    unset( $attribute->GlobalOptionSet );
+                    unset($attribute->GlobalOptionSet);
 
-                    if ( !isset($attribute->{'@odata.type'})){
+                    if (!isset($attribute->{'@odata.type'})) {
                         $attribute->{'@odata.type'} = "#Microsoft.Dynamics.CRM.{$type}";
                     }
 
                     $typedAttributes[] = $attribute;
                 }
-            } catch ( ODataException $e ) {
-                $this->client->getLogger()->error( 'Web API responded with an error to the attribute expansion request', [
+            } catch (ODataException $e) {
+                $this->client->getLogger()->error('Web API responded with an error to the attribute expansion request', [
                     'entity' => $logicalName,
                     'type' => 'Microsoft.Dynamics.CRM.' . $type,
                     'exception' => $e,
-                ] );
+                ]);
 
                 continue;
             }
@@ -214,5 +221,4 @@ class MetadataRegistry {
 
         return $typedAttributes;
     }
-
 }

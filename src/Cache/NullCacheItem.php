@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Copyright 2018 AlexaCRM
  *
@@ -20,12 +21,13 @@
 
 namespace AlexaCRM\Cache;
 
-use Psr\Cache\CacheItemInterface;
+use GPsr\Cache\CacheItemInterface;
 
 /**
  * Represents a PSR-6 compliant dummy cache item.
  */
-class NullCacheItem implements CacheItemInterface {
+class NullCacheItem implements CacheItemInterface
+{
 
     /**
      * @var string
@@ -37,7 +39,8 @@ class NullCacheItem implements CacheItemInterface {
      *
      * @param string $key
      */
-    public function __construct( $key ) {
+    public function __construct($key)
+    {
         $this->key = $key;
     }
 
@@ -50,7 +53,8 @@ class NullCacheItem implements CacheItemInterface {
      * @return string
      *   The key string for this cache item.
      */
-    public function getKey() {
+    public function getKey()
+    {
         return $this->key;
     }
 
@@ -66,7 +70,8 @@ class NullCacheItem implements CacheItemInterface {
      * @return mixed
      *   The value corresponding to this cache item's key, or null if not found.
      */
-    public function get() {
+    public function get()
+    {
         return null;
     }
 
@@ -79,7 +84,8 @@ class NullCacheItem implements CacheItemInterface {
      * @return bool
      *   True if the request resulted in a cache hit. False otherwise.
      */
-    public function isHit() {
+    public function isHit()
+    {
         return false;
     }
 
@@ -96,7 +102,8 @@ class NullCacheItem implements CacheItemInterface {
      * @return static
      *   The invoked object.
      */
-    public function set( $value ) {
+    public function set($value)
+    {
         return $this;
     }
 
@@ -112,7 +119,8 @@ class NullCacheItem implements CacheItemInterface {
      * @return static
      *   The called object.
      */
-    public function expiresAt( $expiration ) {
+    public function expiresAt($expiration)
+    {
         return $this;
     }
 
@@ -129,7 +137,8 @@ class NullCacheItem implements CacheItemInterface {
      * @return static
      *   The called object.
      */
-    public function expiresAfter( $time ) {
+    public function expiresAfter($time)
+    {
         return $this;
     }
 }

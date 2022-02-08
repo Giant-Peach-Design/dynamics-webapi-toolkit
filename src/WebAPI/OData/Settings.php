@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Copyright 2018 AlexaCRM
  *
@@ -22,7 +23,7 @@
 namespace AlexaCRM\WebAPI\OData;
 
 use AlexaCRM\Cache\NullAdapter;
-use Psr\Cache\CacheItemPoolInterface;
+use GPsr\Cache\CacheItemPoolInterface;
 use GPsr\Log\LoggerAwareInterface;
 use GPsr\Log\LoggerInterface;
 use GPsr\Log\NullLogger;
@@ -30,7 +31,8 @@ use GPsr\Log\NullLogger;
 /**
  * Contains Dynamics 365 credentials.
  */
-abstract class Settings implements LoggerAwareInterface {
+abstract class Settings implements LoggerAwareInterface
+{
 
     /**
      * Web API version.
@@ -84,7 +86,8 @@ abstract class Settings implements LoggerAwareInterface {
     /**
      * Settings constructor.
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->cachePool = new NullAdapter();
         $this->logger = new NullLogger();
     }
@@ -94,7 +97,8 @@ abstract class Settings implements LoggerAwareInterface {
      *
      * @param LoggerInterface $logger
      */
-    public function setLogger( LoggerInterface $logger ): void {
+    public function setLogger(LoggerInterface $logger): void
+    {
         $this->logger = $logger;
     }
 
@@ -104,5 +108,4 @@ abstract class Settings implements LoggerAwareInterface {
      * @return string
      */
     public abstract function getEndpointURI(): string;
-
 }

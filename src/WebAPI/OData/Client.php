@@ -32,14 +32,15 @@ use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\HandlerStack;
-use Psr\Cache\CacheItemPoolInterface;
+use GPsr\Cache\CacheItemPoolInterface;
 use Psr\Http\Message\ResponseInterface;
 use GPsr\Log\LoggerInterface;
 
 /**
  * Dynamics 365 Web API OData client.
  */
-class Client {
+class Client
+{
 
     protected Settings $settings;
 
@@ -72,25 +73,27 @@ class Client {
      * @param AuthMiddlewareInterface $authMiddleware
      * @param MiddlewareInterface[] $middlewares
      */
-    function __construct( Settings $settings, AuthMiddlewareInterface $authMiddleware, MiddlewareInterface ...$middlewares ) {
+    function __construct(Settings $settings, AuthMiddlewareInterface $authMiddleware, MiddlewareInterface ...$middlewares)
+    {
         $this->settings = $settings;
         $this->authMiddleware = $authMiddleware;
         $this->middlewares = $middlewares;
 
-        $settings->logger->debug( 'Initializing Dynamics Web API Toolkit', [
+        $settings->logger->debug('Initializing Dynamics Web API Toolkit', [
             'settings' => $settings,
-            'authentication' => get_class( $authMiddleware ),
-            'handlers' => array_map( function( $middleware ) {
-                return get_class( $middleware );
-            }, $middlewares ),
-        ] );
+            'authentication' => get_class($authMiddleware),
+            'handlers' => array_map(function ($middleware) {
+                return get_class($middleware);
+            }, $middlewares),
+        ]);
     }
 
     /**
      * Returns the Guzzle HTTP client instance.
      */
-    public function getHttpClient(): HttpClient {
-        if ( $this->httpClient instanceof HttpClient ) {
+    public function getHttpClient(): HttpClient
+    {
+        if ($this->httpClient instanceof HttpClient) {
             return $this->httpClient;
         }
 
@@ -101,25 +104,25 @@ class Client {
         ];
 
         $handlerStack = HandlerStack::create();
-        $handlerStack->push( $this->authMiddleware->getMiddleware() );
+        $handlerStack->push($this->authMiddleware->getMiddleware());
 
-        foreach ( $this->middlewares as $middleware ) {
-            $handlerStack->push( $middleware->getMiddleware() );
+        foreach ($this->middlewares as $middleware) {
+            $handlerStack->push($middleware->getMiddleware());
         }
 
         $verify = $this->settings->caBundle;
-        if ( $verify === null ) {
+        if ($verify === null) {
             $verify = $this->settings->tlsVerifyPeers;
-            if ( $verify && $this->settings->caBundlePath !== null ) {
+            if ($verify && $this->settings->caBundlePath !== null) {
                 $verify = $this->settings->caBundlePath;
             }
         }
 
-        $this->httpClient = new HttpClient( [
+        $this->httpClient = new HttpClient([
             'headers' => $headers,
             'verify' => $verify,
             'handler' => $handlerStack,
-        ] );
+        ]);
 
         return $this->httpClient;
     }
@@ -130,48 +133,49 @@ class Client {
      * @throws AuthenticationException
      * @throws TransportException
      */
-    public function getMetadata(): Metadata {
-        if ( $this->metadata instanceof Metadata ) {
+    public function getMetadata(): Metadata
+    {
+        if ($this->metadata instanceof Metadata) {
             return $this->metadata;
         }
 
-        $cache = $this->getCachePool()->getItem( 'msdynwebapi.metadata' );
-        if ( $cache->isHit() ) {
+        $cache = $this->getCachePool()->getItem('msdynwebapi.metadata');
+        if ($cache->isHit()) {
             $this->metadata = $cache->get();
-            $this->getLogger()->debug( 'Loaded OData metadata from cache' );
+            $this->getLogger()->debug('Loaded OData metadata from cache');
 
             return $this->metadata;
         }
 
         $metadataURI = $this->settings->getEndpointURI() . '$metadata';
         try {
-            $resp = $this->getHttpClient()->get( $metadataURI, [
-                'headers' => [ 'Accept' => 'application/xml' ],
-            ] );
-            $this->getLogger()->debug( 'Retrieved OData metadata via ' . $metadataURI );
-        } catch ( ConnectException $e ) {
-            throw new TransportException( $e->getMessage(), $e );
-        } catch ( RequestException $e ) {
-            if ( $e->getResponse() === null ) {
-                $this->getLogger()->error( "Guzzle failed to process the request GET {$metadataURI}", [ 'message' => $e->getMessage() ] );
-                throw new TransportException( $e->getMessage(), $e );
+            $resp = $this->getHttpClient()->get($metadataURI, [
+                'headers' => ['Accept' => 'application/xml'],
+            ]);
+            $this->getLogger()->debug('Retrieved OData metadata via ' . $metadataURI);
+        } catch (ConnectException $e) {
+            throw new TransportException($e->getMessage(), $e);
+        } catch (RequestException $e) {
+            if ($e->getResponse() === null) {
+                $this->getLogger()->error("Guzzle failed to process the request GET {$metadataURI}", ['message' => $e->getMessage()]);
+                throw new TransportException($e->getMessage(), $e);
             }
 
             $responseCode = $e->getResponse()->getStatusCode();
-            if ( $responseCode === 401 ) {
-                $this->getLogger()->error( 'Dynamics 365 rejected the access token', [ 'exception' => $e ] );
+            if ($responseCode === 401) {
+                $this->getLogger()->error('Dynamics 365 rejected the access token', ['exception' => $e]);
                 $this->authMiddleware->discardToken();
-                throw new AuthenticationException( 'Dynamics 365 rejected the access token', $e );
+                throw new AuthenticationException('Dynamics 365 rejected the access token', $e);
             }
 
-            $this->getLogger()->error( 'Failed to retrieve OData metadata from ' . $metadataURI, [ 'responseCode' => $responseCode ] );
-            throw new TransportException( 'Metadata request returned a ' . $responseCode . ' code', $e );
+            $this->getLogger()->error('Failed to retrieve OData metadata from ' . $metadataURI, ['responseCode' => $responseCode]);
+            throw new TransportException('Metadata request returned a ' . $responseCode . ' code', $e);
         }
 
         $metadataXML = $resp->getBody()->getContents();
 
-        $this->metadata = Metadata::createFromXML( $metadataXML );
-        $this->getCachePool()->save( $cache->set( $this->metadata ) );
+        $this->metadata = Metadata::createFromXML($metadataXML);
+        $this->getCachePool()->save($cache->set($this->metadata));
 
         return $this->metadata;
     }
@@ -187,65 +191,66 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    private function doRequest( string $method, string $url, $data = null, array $headers = [] ): ResponseInterface {
-        if ( in_array( $method, [ 'POST', 'PATCH' ] ) ) {
-            $headers = array_merge( [ 'Content-Type' => 'application/json' ], $headers );
+    private function doRequest(string $method, string $url, $data = null, array $headers = []): ResponseInterface
+    {
+        if (in_array($method, ['POST', 'PATCH'])) {
+            $headers = array_merge(['Content-Type' => 'application/json'], $headers);
         }
 
-        if ( $this->settings->callerID !== null ) {
-            $headers = array_merge( [ 'MSCRMCallerID' => '$this->settings->callerID' ], $headers );
+        if ($this->settings->callerID !== null) {
+            $headers = array_merge(['MSCRMCallerID' => '$this->settings->callerID'], $headers);
         }
 
         try {
             $payload = [
                 'headers' => $headers
             ];
-            if ( !isset( $headers['Content-Type'] ) || $headers['Content-Type'] === 'application/json' ) {
+            if (!isset($headers['Content-Type']) || $headers['Content-Type'] === 'application/json') {
                 $payload['json'] = $data;
             } else {
                 $payload['body'] = $data;
             }
 
-            $response = $this->getHttpClient()->request( $method, $url, $payload );
-            $this->getLogger()->debug( "Completed {$method} {$url}", [
+            $response = $this->getHttpClient()->request($method, $url, $payload);
+            $this->getLogger()->debug("Completed {$method} {$url}", [
                 'payload' => $data,
                 'responseHeaders' => $response->getHeaders(),
                 'responseBody' => $response->getBody()->getContents(),
-            ] );
+            ]);
 
             return $response;
-        } catch ( RequestException $e ) {
-            if ( $e->getResponse() === null ) {
-                $this->getLogger()->error( "Guzzle failed to process the request {$method} {$url}", [ 'message' => $e->getMessage() ] );
-                throw new TransportException( $e->getMessage(), $e );
+        } catch (RequestException $e) {
+            if ($e->getResponse() === null) {
+                $this->getLogger()->error("Guzzle failed to process the request {$method} {$url}", ['message' => $e->getMessage()]);
+                throw new TransportException($e->getMessage(), $e);
             }
 
             $responseCode = $e->getResponse()->getStatusCode();
-            if ( $responseCode === 401 ) {
-                $this->getLogger()->error( 'Dynamics 365 rejected the access token', [ 'exception' => $e ] );
+            if ($responseCode === 401) {
+                $this->getLogger()->error('Dynamics 365 rejected the access token', ['exception' => $e]);
                 $this->authMiddleware->discardToken();
-                throw new AuthenticationException( 'Dynamics 365 rejected the access token', $e );
+                throw new AuthenticationException('Dynamics 365 rejected the access token', $e);
             }
 
-            $response = json_decode( $e->getResponse()->getBody()->getContents() );
-            if ( $responseCode !== 404 ) {
-                $this->getLogger()->error( "Failed {$method} {$url}", [
+            $response = json_decode($e->getResponse()->getBody()->getContents());
+            if ($responseCode !== 404) {
+                $this->getLogger()->error("Failed {$method} {$url}", [
                     'payload' => $data,
                     'responseHeaders' => $e->getResponse()->getHeaders(),
                     'responseBody' => $response,
-                ] );
+                ]);
             } else {
-                $this->getLogger()->notice( "Not Found {$method} {$url}", [
+                $this->getLogger()->notice("Not Found {$method} {$url}", [
                     'payload' => $data,
                     'responseHeaders' => $e->getResponse()->getHeaders(),
                     'responseBody' => $response,
-                ] );
+                ]);
             }
 
-            throw new ODataException( $response->error, $e );
-        } catch ( GuzzleException $e ) {
-            $this->getLogger()->error( "Guzzle failed to process the request {$method} {$url}", [ 'message' => $e->getMessage() ] );
-            throw new TransportException( $e->getMessage(), $e );
+            throw new ODataException($response->error, $e);
+        } catch (GuzzleException $e) {
+            $this->getLogger()->error("Guzzle failed to process the request {$method} {$url}", ['message' => $e->getMessage()]);
+            throw new TransportException($e->getMessage(), $e);
         }
     }
 
@@ -257,48 +262,49 @@ class Client {
      *
      * @return string
      */
-    private function buildQueryURL( string $uri, array $queryOptions = null ): string {
+    private function buildQueryURL(string $uri, array $queryOptions = null): string
+    {
         $endpointURI = $this->settings->getEndpointURI() . $uri;
         $queryParameters = [];
-        if ( $queryOptions != null ) {
-            if ( isset( $queryOptions['Select'] ) && count( $queryOptions['Select'] ) ) {
-                $queryParameters['$select'] = implode( ',', $queryOptions['Select'] );
+        if ($queryOptions != null) {
+            if (isset($queryOptions['Select']) && count($queryOptions['Select'])) {
+                $queryParameters['$select'] = implode(',', $queryOptions['Select']);
             }
-            if ( isset( $queryOptions['OrderBy'] ) && count( $queryOptions['OrderBy'] ) ) {
-                $queryParameters['$orderby'] = implode( ',', $queryOptions['OrderBy'] );
+            if (isset($queryOptions['OrderBy']) && count($queryOptions['OrderBy'])) {
+                $queryParameters['$orderby'] = implode(',', $queryOptions['OrderBy']);
             }
-            if ( isset( $queryOptions['Filter'] ) ) {
+            if (isset($queryOptions['Filter'])) {
                 $queryParameters['$filter'] = $queryOptions['Filter'];
             }
-            if ( isset( $queryOptions['Expand'] ) ) {
+            if (isset($queryOptions['Expand'])) {
                 $queryParameters['$expand'] = $queryOptions['Expand'];
             }
-            if ( isset( $queryOptions['IncludeCount'] ) ) {
+            if (isset($queryOptions['IncludeCount'])) {
                 $queryParameters['$count'] = 'true';
             }
-            if ( isset( $queryOptions['Skip'] ) ) {
+            if (isset($queryOptions['Skip'])) {
                 $queryParameters['$skip'] = $queryOptions['Skip'];
             }
-            if ( isset( $queryOptions['Top'] ) ) {
+            if (isset($queryOptions['Top'])) {
                 $queryParameters['$top'] = $queryOptions['Top'];
             }
-            if ( isset( $queryOptions['SkipToken'] ) ) {
+            if (isset($queryOptions['SkipToken'])) {
                 $queryParameters['$skiptoken'] = $queryOptions['SkipToken'];
             }
-            if ( isset( $queryOptions['SystemQuery'] ) ) {
+            if (isset($queryOptions['SystemQuery'])) {
                 $queryParameters['savedQuery'] = $queryOptions['SystemQuery'];
             }
-            if ( isset( $queryOptions['UserQuery'] ) ) {
+            if (isset($queryOptions['UserQuery'])) {
                 $queryParameters['userQuery'] = $queryOptions['UserQuery'];
             }
-            if ( isset( $queryOptions['FetchXml'] ) ) {
+            if (isset($queryOptions['FetchXml'])) {
                 $queryParameters['fetchXml'] = $queryOptions['FetchXml'];
             }
-            if ( isset( $queryOptions['ApiVersion'] ) ) {
+            if (isset($queryOptions['ApiVersion'])) {
                 $queryParameters['api-version'] = $queryOptions['ApiVersion'];
             }
 
-            $endpointURI .= '?' . http_build_query( $queryParameters );
+            $endpointURI .= '?' . http_build_query($queryParameters);
         }
 
         return $endpointURI;
@@ -311,18 +317,19 @@ class Client {
      *
      * @return array
      */
-    private function buildQueryHeaders( array $queryOptions = null ): array {
+    private function buildQueryHeaders(array $queryOptions = null): array
+    {
         $headers = [];
         $prefer = [];
 
-        if ( $queryOptions != null ) {
-            if ( isset( $queryOptions['MaxPageSize'] ) ) {
+        if ($queryOptions != null) {
+            if (isset($queryOptions['MaxPageSize'])) {
                 $prefer[] = 'odata.maxpagesize=' . $queryOptions['MaxPageSize'];
             }
         }
 
         $prefer[] = 'odata.include-annotations="*"';
-        $headers['Prefer'] = implode( ',', $prefer );
+        $headers['Prefer'] = implode(',', $prefer);
 
         return $headers;
     }
@@ -336,48 +343,49 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function getList( string $uri, $queryOptions = null ): ListResponse {
-        $url = $this->buildQueryURL( $uri, $queryOptions );
-        $res = $this->doRequest( 'GET', $url, null, $this->buildQueryHeaders( $queryOptions ) );
+    public function getList(string $uri, $queryOptions = null): ListResponse
+    {
+        $url = $this->buildQueryURL($uri, $queryOptions);
+        $res = $this->doRequest('GET', $url, null, $this->buildQueryHeaders($queryOptions));
 
-        $data = json_decode( $res->getBody() );
+        $data = json_decode($res->getBody());
         $result = new ListResponse();
         $result->List = $data->value;
-        $result->Count = count( $data->value );
+        $result->Count = count($data->value);
 
         $result->TotalRecordCount = -1;
-        if ( isset( $data->{Annotation::CRM_TOTALRECORDCOUNT} ) ) {
+        if (isset($data->{Annotation::CRM_TOTALRECORDCOUNT})) {
             $result->TotalRecordCount = $data->{Annotation::CRM_TOTALRECORDCOUNT};
         }
 
         $result->TotalRecordCountLimitExceeded = false;
-        if ( isset( $data->{Annotation::CRM_TOTALRECORDCOUNTLIMITEXCEEDED} ) ) {
+        if (isset($data->{Annotation::CRM_TOTALRECORDCOUNTLIMITEXCEEDED})) {
             $result->TotalRecordCountLimitExceeded = $data->{Annotation::CRM_TOTALRECORDCOUNTLIMITEXCEEDED};
         }
 
-        if ( isset( $data->{Annotation::ODATA_NEXTLINK} ) ) {
-            $nlParts = parse_url( $data->{Annotation::ODATA_NEXTLINK} );
+        if (isset($data->{Annotation::ODATA_NEXTLINK})) {
+            $nlParts = parse_url($data->{Annotation::ODATA_NEXTLINK});
             $queryParts = [];
-            parse_str( $nlParts['query'], $queryParts );
+            parse_str($nlParts['query'], $queryParts);
             $result->SkipToken = $queryParts['$skiptoken'];
-        } elseif ( isset( $data->{Annotation::CRM_FETCHXMLPAGINGCOOKIE} ) ) {
+        } elseif (isset($data->{Annotation::CRM_FETCHXMLPAGINGCOOKIE})) {
             $result->SkipToken = $data->{Annotation::CRM_FETCHXMLPAGINGCOOKIE};
         }
 
-        if ( !isset( $queryOptions['MaxPageSize'] ) && isset( $data->{Annotation::ODATA_NEXTLINK} ) ) {
+        if (!isset($queryOptions['MaxPageSize']) && isset($data->{Annotation::ODATA_NEXTLINK})) {
             $nextLink = $data->{Annotation::ODATA_NEXTLINK};
-            while ( $nextLink != null ) {
-                $res = $this->doRequest( 'GET', $nextLink, null, $this->buildQueryHeaders( $queryOptions ) );
+            while ($nextLink != null) {
+                $res = $this->doRequest('GET', $nextLink, null, $this->buildQueryHeaders($queryOptions));
 
                 $nextLink = null;
-                $data = json_decode( $res->getBody() );
-                $result->List = array_merge( $result->List, $data->value );
-                $result->Count = count( $result->List );
+                $data = json_decode($res->getBody());
+                $result->List = array_merge($result->List, $data->value);
+                $result->Count = count($result->List);
 
                 $nextLink = $data->{Annotation::ODATA_NEXTLINK} ?? null;
             }
 
-            unset( $result->SkipToken );
+            unset($result->SkipToken);
         }
 
         return $result;
@@ -393,11 +401,12 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function getRecord( string $entityCollection, string $entityId, array $queryOptions = null ): object {
-        $url = $this->buildQueryURL( sprintf( "%s(%s)", $entityCollection, $entityId ), $queryOptions );
-        $res = $this->doRequest( 'GET', $url, null, $this->buildQueryHeaders( $queryOptions ) );
+    public function getRecord(string $entityCollection, string $entityId, array $queryOptions = null): object
+    {
+        $url = $this->buildQueryURL(sprintf("%s(%s)", $entityCollection, $entityId), $queryOptions);
+        $res = $this->doRequest('GET', $url, null, $this->buildQueryHeaders($queryOptions));
 
-        return json_decode( $res->getBody() );
+        return json_decode($res->getBody());
     }
 
     /**
@@ -409,11 +418,12 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function getCount( string $uri, array $queryOptions = null ): object {
-        $url = $this->buildQueryURL( sprintf( '%s/$count', $uri ), $queryOptions );
-        $res = $this->doRequest( 'GET', $url, null, $this->buildQueryHeaders( $queryOptions ) );
+    public function getCount(string $uri, array $queryOptions = null): object
+    {
+        $url = $this->buildQueryURL(sprintf('%s/$count', $uri), $queryOptions);
+        $res = $this->doRequest('GET', $url, null, $this->buildQueryHeaders($queryOptions));
 
-        return json_decode( $res->getBody() );
+        return json_decode($res->getBody());
     }
 
     /**
@@ -425,11 +435,12 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function create( string $entityCollection, $data ): ?string {
-        $url = sprintf( '%s%s', $this->settings->getEndpointURI(), $entityCollection );
-        $res = $this->doRequest( 'POST', $url, $data );
+    public function create(string $entityCollection, $data): ?string
+    {
+        $url = sprintf('%s%s', $this->settings->getEndpointURI(), $entityCollection);
+        $res = $this->doRequest('POST', $url, $data);
 
-        return static::getEntityId( $res );
+        return static::getEntityId($res);
     }
 
     /**
@@ -443,8 +454,9 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function update( string $entityCollection, string $key, $data, bool $upsert = false ): ?string {
-        $url = sprintf( '%s%s(%s)', $this->settings->getEndpointURI(), $entityCollection, $key );
+    public function update(string $entityCollection, string $key, $data, bool $upsert = false): ?string
+    {
+        $url = sprintf('%s%s(%s)', $this->settings->getEndpointURI(), $entityCollection, $key);
         $headers = [
             /*
              * Exploit the AutoDisassociate workaround to seamlessly disassociate lookup records
@@ -461,13 +473,13 @@ class Client {
              */
             'AutoDisassociate' => 'true',
         ];
-        if ( $upsert ) {
+        if ($upsert) {
             $headers['If-Match'] = '*';
         }
 
-        $res = $this->doRequest( 'PATCH', $url, $data, $headers );
+        $res = $this->doRequest('PATCH', $url, $data, $headers);
 
-        return static::getEntityId( $res );
+        return static::getEntityId($res);
     }
 
     /**
@@ -482,13 +494,14 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function upload( string $entityCollection, string $key, string $field, $value, ?string $filename = null ): void {
-        $url = sprintf( '%s%s(%s)/%s', $this->settings->getEndpointURI(), $entityCollection, $key, $field );
-        $headers = [ 'Content-Type' => 'application/octet-stream' ];
-        if ( $filename !== null ) {
+    public function upload(string $entityCollection, string $key, string $field, $value, ?string $filename = null): void
+    {
+        $url = sprintf('%s%s(%s)/%s', $this->settings->getEndpointURI(), $entityCollection, $key, $field);
+        $headers = ['Content-Type' => 'application/octet-stream'];
+        if ($filename !== null) {
             $headers['x-ms-file-name'] = $filename;
         }
-        $this->doRequest( 'PUT', $url, $value, $headers );
+        $this->doRequest('PUT', $url, $value, $headers);
     }
 
     /**
@@ -499,9 +512,10 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function delete( string $entityCollection, string $entityId ): void {
-        $url = sprintf( '%s%s(%s)', $this->settings->getEndpointURI(), $entityCollection, $entityId );
-        $this->doRequest( 'DELETE', $url );
+    public function delete(string $entityCollection, string $entityId): void
+    {
+        $url = sprintf('%s%s(%s)', $this->settings->getEndpointURI(), $entityCollection, $entityId);
+        $this->doRequest('DELETE', $url);
     }
 
     /**
@@ -522,9 +536,9 @@ class Client {
         string $toEntityCollection,
         string $toEntityId
     ): void {
-        $url = sprintf( '%s%s(%s)/%s/$ref', $this->settings->getEndpointURI(), $fromEntityCollection, $fromEntityId, $navProperty );
-        $data = [ Annotation::ODATA_ID => sprintf( '%s%s(%s)', $this->settings->getEndpointURI(), $toEntityCollection, $toEntityId ) ];
-        $this->doRequest( 'POST', $url, $data );
+        $url = sprintf('%s%s(%s)/%s/$ref', $this->settings->getEndpointURI(), $fromEntityCollection, $fromEntityId, $navProperty);
+        $data = [Annotation::ODATA_ID => sprintf('%s%s(%s)', $this->settings->getEndpointURI(), $toEntityCollection, $toEntityId)];
+        $this->doRequest('POST', $url, $data);
     }
 
     /**
@@ -545,8 +559,8 @@ class Client {
         string $toEntityCollection,
         string $toEntityId
     ): void {
-        $url = sprintf( '%s%s(%s)/%s/$ref?$id=%s%s(%s)', $this->settings->getEndpointURI(), $fromEntityCollection, $fromEntityId, $navProperty, $this->settings->getEndpointURI(), $toEntityCollection, $toEntityId );
-        $this->doRequest( 'DELETE', $url );
+        $url = sprintf('%s%s(%s)/%s/$ref?$id=%s%s(%s)', $this->settings->getEndpointURI(), $fromEntityCollection, $fromEntityId, $navProperty, $this->settings->getEndpointURI(), $toEntityCollection, $toEntityId);
+        $this->doRequest('DELETE', $url);
     }
 
     /**
@@ -562,32 +576,33 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function executeFunction( string $name, $parameters = null, string $entityCollection = null, string $entityId = null ): ?object {
-        if ( $parameters !== null ) {
+    public function executeFunction(string $name, $parameters = null, string $entityCollection = null, string $entityId = null): ?object
+    {
+        if ($parameters !== null) {
             $paramNames = [];
             $paramValues = [];
 
             $paramNo = 1;
-            foreach ( $parameters as $key => $value ) {
-                $paramNames[] = sprintf( "%s=@p%s", $key, $paramNo );
-                $paramValues[] = sprintf( "@p%s=%s", $paramNo, $value );
+            foreach ($parameters as $key => $value) {
+                $paramNames[] = sprintf("%s=@p%s", $key, $paramNo);
+                $paramValues[] = sprintf("@p%s=%s", $paramNo, $value);
                 $paramNo++;
             }
 
-            $url = sprintf( '%s%s(%s)?%s', $this->settings->getEndpointURI(), $name, implode( ',', $paramNames ), implode( '&', $paramValues ) );
-            if ( $entityCollection != null ) {
-                $url = sprintf( '%s%s(%s)/%s(%s)?%s', $this->settings->getEndpointURI(), $entityCollection, $entityId, $name, implode( ',', $paramNames ), implode( '&', $paramValues ) );
+            $url = sprintf('%s%s(%s)?%s', $this->settings->getEndpointURI(), $name, implode(',', $paramNames), implode('&', $paramValues));
+            if ($entityCollection != null) {
+                $url = sprintf('%s%s(%s)/%s(%s)?%s', $this->settings->getEndpointURI(), $entityCollection, $entityId, $name, implode(',', $paramNames), implode('&', $paramValues));
             }
         } else {
-            $url = sprintf( '%s%s()', $this->settings->getEndpointURI(), $name );
-            if ( $entityCollection !== null ) {
-                $url = sprintf( '%s%s(%s)/%s()', $this->settings->getEndpointURI(), $entityCollection, $entityId, $name );
+            $url = sprintf('%s%s()', $this->settings->getEndpointURI(), $name);
+            if ($entityCollection !== null) {
+                $url = sprintf('%s%s(%s)/%s()', $this->settings->getEndpointURI(), $entityCollection, $entityId, $name);
             }
         }
 
-        $res = $this->doRequest( 'GET', $url );
-        $result = json_decode( $res->getBody() );
-        unset( $result->{Annotation::ODATA_CONTEXT} );
+        $res = $this->doRequest('GET', $url);
+        $result = json_decode($res->getBody());
+        unset($result->{Annotation::ODATA_CONTEXT});
 
         return $result;
     }
@@ -605,28 +620,32 @@ class Client {
      * @throws ODataException
      * @throws TransportException
      */
-    public function executeAction( string $name, $parameters = null, string $entityCollection = null, string $entityId = null ): ?object {
-        $url = sprintf( '%s%s', $this->settings->getEndpointURI(), $name );
-        if ( $entityCollection !== null ) {
-            $url = sprintf( '%s%s(%s)%s', $this->settings->getEndpointURI(), $entityCollection, $entityId, $name );
+    public function executeAction(string $name, $parameters = null, string $entityCollection = null, string $entityId = null): ?object
+    {
+        $url = sprintf('%s%s', $this->settings->getEndpointURI(), $name);
+        if ($entityCollection !== null) {
+            $url = sprintf('%s%s(%s)%s', $this->settings->getEndpointURI(), $entityCollection, $entityId, $name);
         }
 
-        $res = $this->doRequest( 'POST', $url, $parameters );
-        $result = json_decode( $res->getBody() );
-        unset( $result->{Annotation::ODATA_CONTEXT} );
+        $res = $this->doRequest('POST', $url, $parameters);
+        $result = json_decode($res->getBody());
+        unset($result->{Annotation::ODATA_CONTEXT});
 
         return $result;
     }
 
-    public function getSettings(): Settings {
+    public function getSettings(): Settings
+    {
         return $this->settings;
     }
 
-    public function getCachePool(): CacheItemPoolInterface {
+    public function getCachePool(): CacheItemPoolInterface
+    {
         return $this->settings->cachePool;
     }
 
-    public function getLogger(): LoggerInterface {
+    public function getLogger(): LoggerInterface
+    {
         return $this->settings->logger;
     }
 
@@ -637,19 +656,19 @@ class Client {
      *
      * @return string|null
      */
-    protected static function getEntityId( ResponseInterface $response ): ?string {
-        $entityId = $response->getHeader( 'OData-EntityId' );
-        if ( count( $entityId ) === 0 ) {
+    protected static function getEntityId(ResponseInterface $response): ?string
+    {
+        $entityId = $response->getHeader('OData-EntityId');
+        if (count($entityId) === 0) {
             return null;
         }
 
         // Textual UUID representation is 36 characters long.
-        $id = substr( $entityId[0], strrpos( $entityId[0], '(' ) + 1, 36 );
-        if ( $id === false ) {
+        $id = substr($entityId[0], strrpos($entityId[0], '(') + 1, 36);
+        if ($id === false) {
             return null;
         }
 
         return $id;
     }
-
 }

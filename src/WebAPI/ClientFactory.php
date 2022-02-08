@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Copyright 2018 AlexaCRM
  *
@@ -23,13 +24,14 @@ namespace AlexaCRM\WebAPI;
 
 use AlexaCRM\WebAPI\OData\OnlineAuthMiddleware;
 use AlexaCRM\WebAPI\OData\OnlineSettings;
-use Psr\Cache\CacheItemPoolInterface;
+use GPsr\Cache\CacheItemPoolInterface;
 use GPsr\Log\LoggerInterface;
 
 /**
  * Provides several methods to create Client instances for different deployment scenarios.
  */
-class ClientFactory {
+class ClientFactory
+{
 
     /**
      * Creates a client proxy implementing the IOrganizationService interface given the Organization URI
@@ -53,17 +55,16 @@ class ClientFactory {
         $settings->applicationID = $applicationID;
         $settings->applicationSecret = $applicationSecret;
 
-        if ( isset ( $services['logger'] ) && $services['logger'] instanceof LoggerInterface ) {
-            $settings->setLogger( $services['logger'] );
+        if (isset($services['logger']) && $services['logger'] instanceof LoggerInterface) {
+            $settings->setLogger($services['logger']);
         }
-        if ( isset ( $services['cachePool'] ) && $services['cachePool'] instanceof CacheItemPoolInterface ) {
+        if (isset($services['cachePool']) && $services['cachePool'] instanceof CacheItemPoolInterface) {
             $settings->cachePool = $services['cachePool'];
         }
 
-        $middleware = new OnlineAuthMiddleware( $settings );
-        $odataClient = new OData\Client( $settings, $middleware );
+        $middleware = new OnlineAuthMiddleware($settings);
+        $odataClient = new OData\Client($settings, $middleware);
 
-        return new Client( $odataClient );
+        return new Client($odataClient);
     }
-
 }
