@@ -23,9 +23,9 @@ namespace AlexaCRM\WebAPI\OData;
 
 use AlexaCRM\Cache\NullAdapter;
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
+use GPsr\Log\LoggerAwareInterface;
+use GPsr\Log\LoggerInterface;
+use GPsr\Log\NullLogger;
 
 /**
  * Contains Dynamics 365 credentials.

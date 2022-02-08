@@ -37,7 +37,7 @@ use AlexaCRM\Xrm\Query\QueryBase;
 use AlexaCRM\Xrm\Query\QueryByAttribute;
 use AlexaCRM\Xrm\Relationship;
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\Log\LoggerInterface;
+use GPsr\Log\LoggerInterface;
 
 /**
  * Represents the Organization-compatible Dynamics 365 Web API client.

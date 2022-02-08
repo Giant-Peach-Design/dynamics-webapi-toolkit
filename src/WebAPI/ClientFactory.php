@@ -24,7 +24,7 @@ namespace AlexaCRM\WebAPI;
 use AlexaCRM\WebAPI\OData\OnlineAuthMiddleware;
 use AlexaCRM\WebAPI\OData\OnlineSettings;
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\Log\LoggerInterface;
+use GPsr\Log\LoggerInterface;
 
 /**
  * Provides several methods to create Client instances for different deployment scenarios.

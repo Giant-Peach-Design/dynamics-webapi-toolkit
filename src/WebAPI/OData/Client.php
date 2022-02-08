@@ -34,7 +34,7 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\HandlerStack;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Log\LoggerInterface;
+use GPsr\Log\LoggerInterface;
 
 /**
  * Dynamics 365 Web API OData client.
