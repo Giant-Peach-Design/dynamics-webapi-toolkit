@@ -10,10 +10,20 @@
     }
   ],
   "minimum-stability": "dev",
+  "repositories": [
+    {
+      "url": "https://github.com/Giant-Peach-Design/log.git",
+      "type": "git"
+    },
+    {
+      "url": "https://github.com/Giant-Peach-Design/cache.git",
+      "type": "git"
+    }
+  ],
   "require": {
     "php": "^7.4 || ^8.0",
-    "psr/log": "^1.0",
-    "psr/cache": "^1.0",
+    "gpsr/log": "^1.0",
+    "gpsr/cache": "^1.0",
     "elao/enum": "^1.6",
     "alexacrm/strong-serializer": "^2.0",
     "guzzlehttp/guzzle": "^6.5 || ^7.0"
